@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 import models
+from twilio.rest import Client
 from base import Base   
 import os
 import schemas
@@ -17,8 +18,10 @@ load_dotenv()
 
 gemini_client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
-def print_available_tools(tools):
-    print("Available tools:", [t.name for t in tools.tools])
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_NUMBER = os.getenv("TWILIO_NUMBER")
+client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
 async def call_gemini(query: str):
 
@@ -30,6 +33,7 @@ async def call_gemini(query: str):
                     temperature=0
                 )
             )
+        print(response.text)
         speak(response.text)
         return response.text
 
@@ -46,9 +50,12 @@ def get_db():
 
 
 
-record_to_mp3("mic_recording.mp3", duration=5)
-query=transcribe("mic_recording.mp3")
-asyncio.run(handleQuery(query))
+@app.on_event("startup")
+async def startup_event():
+    record_to_mp3("mic_recording.mp3", duration=5)
+    query = transcribe("mic_recording.mp3")
+    print(query)
+    await handleQuery(query)
 # Example endpoint
 @app.post("/users/")
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):

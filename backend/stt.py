@@ -33,6 +33,7 @@ def transcribe(filename="mic_recording.mp3"):
         model="gpt-4o-transcribe", 
         file=audio_file
     )
+    print(transcription.text)
     return transcription.text
 
 
