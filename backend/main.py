@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends,Request
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
 import models
@@ -50,13 +51,49 @@ def get_db():
 
 
 
-@app.on_event("startup")
+""" @app.on_event("startup")
 async def startup_event():
     record_to_mp3("mic_recording.mp3", duration=5)
     query = transcribe("mic_recording.mp3")
     print(query)
-    await handleQuery(query)
+    await handleQuery(query) """
 # Example endpoint
+@app.post("/call-user")
+def call_user():
+    call = client.calls.create(
+        to="+918126293202",
+        from_=TWILIO_NUMBER,
+        twiml="<Response><Say>What is your task status?</Say><Record action='/twilio/process' maxLength='10' transcribe='true'/></Response>"
+        
+    )
+    return {"status": "initiated", "call_sid": call.sid}
+
+
+@app.post("/twilio/voice")
+async def twilio_voice():
+    # Play prompt and ask for speech input
+    twiml = """
+    <Response>
+      <Say>What is your task status?</Say>
+      <Record action="/twilio/process" maxLength="10" transcribe="true"/>
+    </Response>
+    """
+    return Response(content=twiml, media_type="application/xml")
+
+@app.post("/twilio/process")
+async def process_recording(request: Request):
+    # Handle recording, call your LLM/logic, return another <Say> or redirect
+    recording_url = (await request.form())["RecordingUrl"]
+    # Download/Transcribe/Process recording here
+    answer = "Thanks, your response is saved."
+    twiml = f"""
+    <Response>
+      <Say>{answer}</Say>
+      <Hangup/>
+    </Response>
+    """
+    return Response(content=twiml, media_type="application/xml")
+
 @app.post("/users/")
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = models.User(name=user.name)
